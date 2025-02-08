@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npx tsc -b"
   },
   "keywords": [],
   "author": "",
@@ -13,5 +13,8 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.1",
     "tailwindcss": "^4.0.4"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.1"
   }
 }
