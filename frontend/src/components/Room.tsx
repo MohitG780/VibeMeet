@@ -4,7 +4,17 @@ import { Socket,io } from "socket.io-client";
 
 const URL="http://localhost:3000";
 
-export const Room=()=>{
+export const Room=({
+      name,
+      localAudioTrack,
+      localVideoTrack
+}:{
+    name:string,
+    localAudioTrack:MediaStreamTrack,
+    localVideoTrack:MediaStreamTrack
+
+})=>{
+
     const [searchParams,setSearchParams]=useSearchParams();
     const name=searchParams.get('name');
     const [lobby,setLobby]=useState(true);
@@ -24,13 +34,17 @@ export const Room=()=>{
           const pc=new RTCPeerConnection();
         
           setSendingPc(pc);
-
-          const sdp=await pc.createOffer();
+          pc.addTrack(localAudioTrack);
+          pc.addTrack(localVideoTrack)
          
-          socket.emit("offer",{
-           sdp:"",
-           roomId
-          });
+         pc.onicecandidate=()=>{
+            const sdp=await pc.createOffer();
+            socket.emit("offer",{
+                sdp:"",
+                roomId
+               });
+         }
+          
         });
         socket.on('offer',({roomId,offer})=>{
        
