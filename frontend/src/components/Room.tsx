@@ -9,27 +9,50 @@ export const Room=()=>{
     const name=searchParams.get('name');
     const [lobby,setLobby]=useState(true);
     const[socket,setSocket]=useState<null|Socket>(null);
+    const [sendingPc,setSendingPc]=useState<null|RTCPeerConnection>(null);
+    const [receivingPc,setReceivingPc]=useState<null|RTCPeerConnection>(null);
+    const [remoteVideoTrack,setRemoteVideoTrack] =useState<MediaStreamTrack|null>(null);
+  
+    const [remoteAudioTrack,setRemoteAudioTrack] =useState<MediaStreamTrack|null>(null);
+    
 
         useEffect(()=>{
         const socket=io(URL);
         socket.on('send-offer',({roomId})=>{
-          alert("send offer please");
+
           setLobby(false);
+          const pc=new RTCPeerConnection();
+        
+          setSendingPc(pc);
+
+          const sdp=await pc.createOffer();
+         
           socket.emit("offer",{
            sdp:"",
            roomId
           });
         });
         socket.on('offer',({roomId,offer})=>{
-            alert("send answer please");
-            //setLobby(false);
-          //  socket.emit("answer",{
-               // sdp:"",
-               // roomId
-               //});
+       
+            setLobby(false);
+            const pc=new RTCPeerConnection();
+           pc.setRemoteDescription({sdp:offer,type:"offer"})
+            const sdp=await pc.createAnswer();
+            setReceivingPc(pc);
+            pc.ontrack=(({track,type})=>{
+                if(type=='audio'){
+                    setRemoteAudioTrack(track);
+                }
+                else setRemoteVideoTrack(track);
+            })
+            socket.emit("answer",{
+                roomId,
+                sdp:sdp
+            });
+         
           });
           socket.on('answer',({roomId,answer})=>{
-            alert("connectiom done");
+         
             setLobby(false);
           });
 
