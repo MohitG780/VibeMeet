@@ -29,7 +29,8 @@ export const Landing=()=>{
       }
        
     },[videoRef])
-    return <div>
+    if(!joined){
+      return <div>
       <video autoPlay  ref={videoRef}> </video>
        <input type="text" onChange={(e)=>{
         setName(e.target.value);
@@ -41,4 +42,6 @@ export const Landing=()=>{
       }}>Join
     </Link>
     </div> 
+    }
+    return <Room name={name} localAudioTrack={localAudioTrack} localVideoTrack={localVideoTrack}/>
 }
