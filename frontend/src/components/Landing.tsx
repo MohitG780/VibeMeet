@@ -1,5 +1,6 @@
 import { useEffect, useState,useRef } from "react";
-import { Link } from "react-router-dom";
+import { Room } from "./Room";
+
 export const Landing=()=>{
     const [name,setName]=useState("");
     const [joined,setJoined]=useState(false);
@@ -37,10 +38,10 @@ export const Landing=()=>{
        }}>
 
        </input>
-       <Link to={`/room/?name=${name}`} onClick={()=>{
-
+       <button onClick={()=>{
+         setJoined(true);
       }}>Join
-    </Link>
+    </button>
     </div> 
     }
     return <Room name={name} localAudioTrack={localAudioTrack} localVideoTrack={localVideoTrack}/>
