@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { PureComponent, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom"
 import { Socket,io } from "socket.io-client";
 
@@ -30,7 +30,7 @@ export const Room=({
         useEffect(()=>{
         const socket=io(URL);
         socket.on('send-offer',({roomId})=>{
-
+         console.log("sending offer")
           setLobby(false);
           const pc=new RTCPeerConnection();
         if(localVideoTrack){
@@ -42,15 +42,18 @@ export const Room=({
           setSendingPc(pc);
       
           
-         
-       //  pc.onicecandidate=async (e)=>{
-       //    if(e.candidate){
-          //  pc.addIceCandidate(e.candidate);
-         //   }
+ pc.onicecandidate=async (e)=>{
+  console.log("receiving ice candidate locally")
+       if(e.candidate){
+         socket.emit("add-ice-candidate",{
+          candidat:e.candidate,
+          type:"sender"
+         })
+       }
             
-       // }
+       }
          pc.onnegotiationneeded=async ()=>{
-            setTimeout(async ()=>{
+          console.log("on negotiation needed,sending offer")
                 const sdp=await pc.createOffer();
             //@ts-ignore
             pc.setLocalDescription(sdp)
@@ -58,13 +61,13 @@ export const Room=({
                 sdp,
                 roomId
                });
-            },2000)
+            }
             
          }
           
-        });
+        );
         socket.on('offer',async ({roomId,sdp:remoteSdp})=>{
-       
+          console.log("received offer")
             setLobby(false);
             const pc=new RTCPeerConnection();
            pc.setRemoteDescription(remoteSdp)
@@ -78,6 +81,17 @@ export const Room=({
             setRemoteMediaStream(stream); 
 
             setReceivingPc(pc);
+                      
+    pc.onicecandidate=async (e)=>{
+      console.log("on ice candisiate on receiving sender")
+     if(e.candidate){
+       socket.emit("add-ice-candidate",{
+     candidat:e.candidate,
+     type:"receiver"
+    })
+  }
+       
+  }
             pc.ontrack=(({track,type})=>{
                 if(type=='audio'){
                     //setRemoteAudioTrack(track);
@@ -103,11 +117,27 @@ export const Room=({
             setSendingPc( pc =>{
                 pc?.setRemoteDescription(remoteSdp)
                 return pc;
-            })
-          });
+            });
+            console.log("loop closed");
+          })
 
           socket.on("lobby",()=>{
             setLobby(true);
+          })
+          socket.on("add-ice-candidate",({candidate,type})=>{
+            console.log("add ice candidate from remote");
+            console.log({candidate,type});
+              if(type=="sender"){
+                 setReceivingPc(pc=>{
+                  pc?.addIceCandidate(candidate)
+                  return pc;
+                 })
+              }else{
+                setReceivingPc(pc=>{
+                  pc?.addIceCandidate(candidate)
+                  return pc;
+                 })
+              }
           })
           setSocket(socket)
                   },[name])
