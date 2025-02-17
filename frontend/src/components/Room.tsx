@@ -46,8 +46,9 @@ export const Room=({
   console.log("receiving ice candidate locally")
        if(e.candidate){
          socket.emit("add-ice-candidate",{
-          candidat:e.candidate,
-          type:"sender"
+          candidate:e.candidate,
+          type:"sender",
+          roomId
          })
        }
             
@@ -83,16 +84,24 @@ export const Room=({
             setReceivingPc(pc);
                       
     pc.onicecandidate=async (e)=>{
+      if(!e.candidate){
+        return ;
+      }
       console.log("on ice candisiate on receiving sender")
+
      if(e.candidate){
        socket.emit("add-ice-candidate",{
-     candidat:e.candidate,
-     type:"receiver"
+     candidate:e.candidate,
+     type:"receiver",
+     roomId 
     })
   }
        
   }
-            pc.ontrack=(({track,type})=>{
+            pc.ontrack=(e)=>{
+              console.error("inside ontrack");
+             const {track,type}=e;
+             
                 if(type=='audio'){
                     //setRemoteAudioTrack(track);
                     // @ts-ignore
@@ -104,7 +113,7 @@ export const Room=({
                 }
                 // @ts-ignore
                 remoteVideoRef.current.play();
-            })
+            }
             socket.emit("answer",{
                 roomId,
                 sdp:sdp
@@ -133,7 +142,7 @@ export const Room=({
                   return pc;
                  })
               }else{
-                setReceivingPc(pc=>{
+                setSendingPc(pc=>{
                   pc?.addIceCandidate(candidate)
                   return pc;
                  })
