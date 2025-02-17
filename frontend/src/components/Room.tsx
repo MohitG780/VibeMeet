@@ -33,6 +33,7 @@ export const Room=({
          console.log("sending offer")
           setLobby(false);
           const pc=new RTCPeerConnection();
+          window.pcs=pc;
         if(localVideoTrack){
             pc.addTrack(localVideoTrack);
         }
@@ -41,7 +42,7 @@ export const Room=({
         }
           setSendingPc(pc);
       
-          
+
  pc.onicecandidate=async (e)=>{
   console.log("receiving ice candidate locally")
        if(e.candidate){
@@ -79,6 +80,7 @@ export const Room=({
             if(remoteVideoRef.current){
             remoteVideoRef.current.srcObject=stream;
             }
+            window.pcr=pc;
             setRemoteMediaStream(stream); 
 
             setReceivingPc(pc);
@@ -98,27 +100,60 @@ export const Room=({
   }
        
   }
+  pc.onconnectionstatechange=(e)=>{
+    console.error(e);
+    console.log(pc.iceConnectionState)
+  }
             pc.ontrack=(e)=>{
-              console.error("inside ontrack");
-             const {track,type}=e;
+            //  console.error("inside ontrack");
+             //const {track,type}=e;
              
-                if(type=='audio'){
+                //if(type=='audio'){
                     //setRemoteAudioTrack(track);
                     // @ts-ignore
-                    remoteVideoRef.current.srcObject.addTrack(track);
-                }
-                else {//setRemoteVideoTrack(track);
+                  //  remoteVideoRef.current.srcObject.addTrack(track);
+               // }
+               // else {//setRemoteVideoTrack(track);
                        // @ts-ignore
-                       remoteVideoRef.current.srcObject.addTrack(track);
-                }
+                  //     remoteVideoRef.current.srcObject.addTrack(track);
+               // }
                 // @ts-ignore
-                remoteVideoRef.current.play();
+                //remoteVideoRef.current.play();
             }
             socket.emit("answer",{
                 roomId,
                 sdp:sdp
             });
-         
+         setTimeout(()=>{
+          const track1=pc.getTransceivers()[0].receiver.track;
+          const track2=pc.getTransceivers()[1].receiver.track;
+          
+             console.log(track1);
+             if(track1.kind=="video"){
+              setRemoteAudioTrack(track1);
+              setRemoteVideoTrack(track2);
+             }
+             else{
+              setRemoteAudioTrack(track1);
+              setRemoteVideoTrack(track2);
+             }
+             //@ts-ignore
+             remoteVideoRef.current.srcObject.addTrack(track1);
+             remoteVideoRef.current.srcObject.addTrack(track2);
+             remoteVideoRef.current.play();
+              //   if(type=='audio'){
+              //       setRemoteAudioTrack(track);
+              //       // @ts-ignore
+              //      remoteVideoRef.current.srcObject.addTrack(track);
+              //  }
+              //  else {setRemoteVideoTrack(track);
+              //          // @ts-ignore
+              //         remoteVideoRef.current.srcObject.addTrack(track);
+              //  }
+              //   // @ts-ignore
+           
+
+         },5000)
           });
           socket.on('answer',({roomId, sdp:remoteSdp})=>{
          
