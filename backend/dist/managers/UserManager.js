@@ -13,7 +13,7 @@ class UserManager {
             name, socket
         });
         this.queue.push(socket.id);
-        socket.send("lobby");
+        socket.emit("lobby");
         this.clearQueue();
         this.initHandlers(socket);
     }
@@ -23,16 +23,20 @@ class UserManager {
         this.queue = this.queue.filter(x => x === socketId);
     }
     clearQueue() {
+        console.log("inside clear queues");
+        console.log(this.queue.length);
         if (this.queue.length < 2) {
             return;
         }
         const id1 = this.queue.pop();
         const id2 = this.queue.pop();
+        console.log("id is " + id1 + " " + id2);
         const user1 = this.users.find(x => x.socket.id === id1);
         const user2 = this.users.find(x => x.socket.id === id2);
         if (!user1 || !user2) {
             return;
         }
+        console.log("creating roonm");
         const room = this.roomManager.createRoom(user1, user2);
         this.clearQueue();
     }

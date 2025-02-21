@@ -1,20 +1,18 @@
-
-import './App.css'
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Landing } from './components/Landing';
+import { Homepage } from "./components/Homepage";
+import { StrictMode } from "react";
+import "./index.css"; // Ensure your styles are imported
 
 function App() {
-
-
   return (
-  <BrowserRouter>
-  <Routes>
-    <Route path="/" element={<Landing/>}/>
-
-  </Routes>
-  </BrowserRouter>
-      
-  )
+    <StrictMode>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+        </Routes>
+      </BrowserRouter>
+    </StrictMode>
+  );
 }
 
-export default App
+export default App;
