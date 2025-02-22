@@ -21,6 +21,7 @@
     "prop-types": "^15.8.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-firebase-hooks": "^5.1.1",
     "react-hot-toast": "^2.5.2",
     "shadcn-ui": "^0.9.4",
     "socket.io": "^4.8.1",

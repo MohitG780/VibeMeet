@@ -77,7 +77,7 @@ export const Hero: React.FC = () => {
         </button>
         <button
           className="border border-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition-colors text-lg"
-          onClick={() => router("/learnmore")} // ✅ Corrected navigation
+          onClick={() => router("/Learnmore")} // ✅ Corrected navigation
         >
           Learn More
         </button>
