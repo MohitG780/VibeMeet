@@ -1,76 +1,86 @@
-"use client"
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Socket, io } from "socket.io-client";
+import { Video, VideoOff, Mic, MicOff, PhoneOff } from "lucide-react";
 
-import { useEffect, useRef, useState } from "react"
-import { useSearchParams } from "react-router-dom"
-import { type Socket, io } from "socket.io-client"
-
-const URL = "http://localhost:3000"
+const URL = "http://localhost:3000";
 
 export const Room = ({
   name,
   localAudioTrack,
-  localVideoTrack,
+  localVideoTrack
 }: {
-  name: string
-  localAudioTrack: MediaStreamTrack | null
-  localVideoTrack: MediaStreamTrack | null
+  name: string,
+  localAudioTrack: MediaStreamTrack,
+  localVideoTrack: MediaStreamTrack
 }) => {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [lobby, setLobby] = useState(true)
-  const [socket, setSocket] = useState<null | Socket>(null)
-  const [sendingPc, setSendingPc] = useState<null | RTCPeerConnection>(null)
-  const [receivingPc, setReceivingPc] = useState<null | RTCPeerConnection>(null)
-  const [remoteVideoTrack, setRemoteVideoTrack] = useState<MediaStreamTrack | null>(null)
-  const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null)
-  const [remoteMediaStream, setRemoteMediaStream] = useState<MediaStream | null>(null)
-  const remoteVideoRef = useRef<HTMLVideoElement>()
-  const localVideoRef = useRef<HTMLVideoElement>()
-  const [isMuted, setIsMuted] = useState(false)
-  const [isVideoOff, setIsVideoOff] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [lobby, setLobby] = useState(true);
+  const [socket, setSocket] = useState<null | Socket>(null);
+  const [sendingPc, setSendingPc] = useState<null | RTCPeerConnection>(null);
+  const [receivingPc, setReceivingPc] = useState<null | RTCPeerConnection>(null);
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState<MediaStreamTrack | null>(null);
+  const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null);
+  const [remoteMediaStream, setRemoteMediaStream] = useState<MediaStream | null>(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const remoteVideoRef = useRef<HTMLVideoElement | undefined>();
+  const localVideoRef = useRef<HTMLVideoElement>();
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted)
+  const toggleAudio = () => {
     if (localAudioTrack) {
-      localAudioTrack.enabled = isMuted
+      localAudioTrack.enabled = !localAudioTrack.enabled;
+      setIsAudioEnabled(localAudioTrack.enabled);
     }
-  }
+  };
 
   const toggleVideo = () => {
-    setIsVideoOff(!isVideoOff)
     if (localVideoTrack) {
-      localVideoTrack.enabled = !isVideoOff
+      localVideoTrack.enabled = !localVideoTrack.enabled;
+      setIsVideoEnabled(localVideoTrack.enabled);
     }
-  }
+  };
 
-  const handleSkip = () => {
-    // Disconnect from current peer
-    sendingPc?.close()
-    receivingPc?.close()
-    setRemoteVideoTrack(null)
-    setRemoteAudioTrack(null)
-    setLobby(true)
-    // Emit skip event to server
-    socket?.emit("skip")
-  }
+  const handleLeaveCall = () => {
+    // Clean up tracks
+    if (localAudioTrack) localAudioTrack.stop();
+    if (localVideoTrack) localVideoTrack.stop();
+    if (remoteAudioTrack) remoteAudioTrack.stop();
+    if (remoteVideoTrack) remoteVideoTrack.stop();
+
+    // Close peer connections
+    if (sendingPc) {
+      sendingPc.close();
+      setSendingPc(null);
+    }
+    if (receivingPc) {
+      receivingPc.close();
+      setReceivingPc(null);
+    }
+
+    // Disconnect socket
+    if (socket) {
+      socket.disconnect();
+    }
+
+    // Redirect to home
+    window.location.href = '/';
+  };
 
   useEffect(() => {
-    const socket = io(URL)
-    socket.on("send-offer", async ({ roomId }) => {
+    const socket = io(URL);
+    socket.on('send-offer', ({ roomId }) => {
       console.log("sending offer")
-      setLobby(false)
-      const pc = new RTCPeerConnection()
-
-      setSendingPc(pc)
+      setLobby(false);
+      const pc = new RTCPeerConnection();
+      window.pcs = pc;
       if (localVideoTrack) {
-        console.error("added tack")
-        console.log(localVideoTrack)
-        pc.addTrack(localVideoTrack)
+        pc.addTrack(localVideoTrack);
       }
       if (localAudioTrack) {
-        console.error("added tack")
-        console.log(localAudioTrack)
-        pc.addTrack(localAudioTrack)
+        pc.addTrack(localAudioTrack);
       }
+      setSendingPc(pc);
 
       pc.onicecandidate = async (e) => {
         console.log("receiving ice candidate locally")
@@ -78,208 +88,226 @@ export const Room = ({
           socket.emit("add-ice-candidate", {
             candidate: e.candidate,
             type: "sender",
-            roomId,
+            roomId
           })
         }
       }
 
       pc.onnegotiationneeded = async () => {
-        console.log("on negotiation neeeded, sending offer")
-        const sdp = await pc.createOffer()
-        //@ts-ignore
+        console.log("on negotiation needed,sending offer")
+        const sdp = await pc.createOffer();
         pc.setLocalDescription(sdp)
         socket.emit("offer", {
           sdp,
-          roomId,
-        })
+          roomId
+        });
       }
-    })
+    });
 
-    socket.on("offer", async ({ roomId, sdp: remoteSdp }) => {
+    socket.on('offer', async ({ roomId, sdp: remoteSdp }) => {
       console.log("received offer")
-      setLobby(false)
-      const pc = new RTCPeerConnection()
+      setLobby(false);
+      const pc = new RTCPeerConnection();
       pc.setRemoteDescription(remoteSdp)
-      const sdp = await pc.createAnswer()
-      //@ts-ignore
+      const sdp = await pc.createAnswer();
       pc.setLocalDescription(sdp)
-      const stream = new MediaStream()
+      const stream = new MediaStream();
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream
+        remoteVideoRef.current.srcObject = stream;
       }
-
-      setRemoteMediaStream(stream)
-      // trickle ice
-      setReceivingPc(pc)
-      window.pcr = pc
-      pc.ontrack = (e) => {
-        alert("ontrack")
-        // console.error("inside ontrack");
-        // const {track, type} = e;
-        // if (type == 'audio') {
-        //     // setRemoteAudioTrack(track);
-        //     // @ts-ignore
-        //     remoteVideoRef.current.srcObject.addTrack(track)
-        // } else {
-        //     // setRemoteVideoTrack(track);
-        //     // @ts-ignore
-        //     remoteVideoRef.current.srcObject.addTrack(track)
-        // }
-        // //@ts-ignore
-        // remoteVideoRef.current.play();
-      }
+      window.pcr = pc;
+      setRemoteMediaStream(stream);
+      setReceivingPc(pc);
 
       pc.onicecandidate = async (e) => {
         if (!e.candidate) {
-          return
+          return;
         }
-        console.log("omn ice candidate on receiving seide")
+        console.log("on ice candidate on receiving sender")
         if (e.candidate) {
           socket.emit("add-ice-candidate", {
             candidate: e.candidate,
             type: "receiver",
-            roomId,
+            roomId
           })
         }
       }
 
+      pc.onconnectionstatechange = (e) => {
+        console.error(e);
+        console.log(pc.iceConnectionState)
+      }
+
       socket.emit("answer", {
         roomId,
-        sdp: sdp,
-      })
-      setTimeout(() => {
-        const track1 = pc.getTransceivers()[0].receiver.track
-        const track2 = pc.getTransceivers()[1].receiver.track
-        console.log(track1)
-        if (track1.kind === "video") {
-          setRemoteAudioTrack(track2)
-          setRemoteVideoTrack(track1)
-        } else {
-          setRemoteAudioTrack(track1)
-          setRemoteVideoTrack(track2)
-        }
-        //@ts-ignore
-        remoteVideoRef.current.srcObject.addTrack(track1)
-        //@ts-ignore
-        remoteVideoRef.current.srcObject.addTrack(track2)
-        //@ts-ignore
-        remoteVideoRef.current.play()
-        // if (type == 'audio') {
-        //     // setRemoteAudioTrack(track);
-        //     // @ts-ignore
-        //     remoteVideoRef.current.srcObject.addTrack(track)
-        // } else {
-        //     // setRemoteVideoTrack(track);
-        //     // @ts-ignore
-        //     remoteVideoRef.current.srcObject.addTrack(track)
-        // }
-        // //@ts-ignore
-      }, 5000)
-    })
+        sdp: sdp
+      });
 
-    socket.on("answer", ({ roomId, sdp: remoteSdp }) => {
-      setLobby(false)
-      setSendingPc((pc) => {
+      setTimeout(() => {
+        const track1 = pc.getTransceivers()[0].receiver.track;
+        const track2 = pc.getTransceivers()[1].receiver.track;
+
+        console.log(track1);
+        if (track1.kind == "video") {
+          setRemoteAudioTrack(track1);
+          setRemoteVideoTrack(track2);
+        } else {
+          setRemoteAudioTrack(track1);
+          setRemoteVideoTrack(track2);
+        }
+        remoteVideoRef.current.srcObject.addTrack(track1);
+        remoteVideoRef.current.srcObject.addTrack(track2);
+        remoteVideoRef.current.play();
+      }, 5000)
+    });
+
+    socket.on('answer', ({ roomId, sdp: remoteSdp }) => {
+      setLobby(false);
+      setSendingPc(pc => {
         pc?.setRemoteDescription(remoteSdp)
-        return pc
-      })
-      console.log("loop closed")
+        return pc;
+      });
+      console.log("loop closed");
     })
 
     socket.on("lobby", () => {
-      setLobby(true)
+      setLobby(true);
     })
 
     socket.on("add-ice-candidate", ({ candidate, type }) => {
-      console.log("add ice candidate from remote")
-      console.log({ candidate, type })
+      console.log("add ice candidate from remote");
+      console.log({ candidate, type });
       if (type == "sender") {
-        setReceivingPc((pc) => {
-          if (!pc) {
-            console.error("receicng pc nout found")
-          } else {
-            console.error(pc.ontrack)
-          }
+        setReceivingPc(pc => {
           pc?.addIceCandidate(candidate)
-          return pc
+          return pc;
         })
       } else {
-        setSendingPc((pc) => {
-          if (!pc) {
-            console.error("sending pc nout found")
-          } else {
-            // console.error(pc.ontrack)
-          }
+        setSendingPc(pc => {
           pc?.addIceCandidate(candidate)
-          return pc
+          return pc;
         })
       }
     })
-
-    socket.on("skip", () => {
-      setLobby(true)
-      setRemoteVideoTrack(null)
-      setRemoteAudioTrack(null)
-    })
-
     setSocket(socket)
   }, [name])
 
   useEffect(() => {
     if (localVideoRef.current) {
       if (localVideoTrack) {
-        localVideoRef.current.srcObject = new MediaStream([localVideoTrack])
-        localVideoRef.current.play()
+        localVideoRef.current.srcObject = new MediaStream([localVideoTrack]);
+        localVideoRef.current.play();
       }
     }
   }, [localVideoRef])
 
   return (
-    <div className="flex flex-col items-center">
-      <h2 className="text-2xl font-bold mb-4">Hi {name}</h2>
-      <div className="flex space-x-4 mb-4">
-        <div className="relative">
-          <video
-            autoPlay
-            muted
-            width={400}
-            height={400}
-            ref={localVideoRef}
-            className={`rounded-lg ${isVideoOff ? "hidden" : ""}`}
-          />
-          {isVideoOff && (
-            <div className="w-[400px] h-[400px] bg-gray-800 rounded-lg flex items-center justify-center">
-              <span className="text-white">Video Off</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8 bg-gray-800 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center">
+              <span className="text-white font-semibold">{name[0].toUpperCase()}</span>
             </div>
-          )}
-        </div>
-        <div className="relative">
-          <video autoPlay width={400} height={400} ref={remoteVideoRef} className="rounded-lg" />
-          {lobby && (
-            <div className="absolute inset-0 bg-gray-800 bg-opacity-75 rounded-lg flex items-center justify-center">
-              <span className="text-white">Waiting to connect you to someone...</span>
+            <div>
+              <h1 className="text-white font-semibold">{name}</h1>
+              <p className="text-gray-400 text-sm">
+                {lobby ? "Waiting for someone to join..." : "Connected"}
+              </p>
             </div>
-          )}
+          </div>
+          <button 
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            onClick={handleLeaveCall}
+          >
+            <PhoneOff className="w-4 h-4" />
+            Leave Call
+          </button>
         </div>
-      </div>
-      <div className="flex space-x-4">
-        <button
-          onClick={toggleMute}
-          className={`px-4 py-2 rounded ${isMuted ? "bg-red-500" : "bg-blue-500"} text-white`}
-        >
-          {isMuted ? "Unmute" : "Mute"}
-        </button>
-        <button
-          onClick={toggleVideo}
-          className={`px-4 py-2 rounded ${isVideoOff ? "bg-red-500" : "bg-blue-500"} text-white`}
-        >
-          {isVideoOff ? "Turn Video On" : "Turn Video Off"}
-        </button>
-        <button onClick={handleSkip} className="px-4 py-2 rounded bg-yellow-500 text-white">
-          Skip
-        </button>
+
+        {/* Video Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {/* Local Video */}
+          <div className="relative">
+            <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover mirror ${!isVideoEnabled ? 'hidden' : ''}`}
+              />
+              {!isVideoEnabled && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-20 w-20 rounded-full bg-gray-700 flex items-center justify-center">
+                    <span className="text-2xl text-white font-semibold">{name[0].toUpperCase()}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="absolute bottom-4 left-4 flex gap-2">
+              <button 
+                onClick={toggleAudio}
+                className={`p-2 rounded-lg transition-colors ${isAudioEnabled ? 'bg-gray-900/80 hover:bg-gray-700/80' : 'bg-red-500/80 hover:bg-red-600/80'}`}
+              >
+                {isAudioEnabled ? <Mic className="w-5 h-5 text-white" /> : <MicOff className="w-5 h-5 text-white" />}
+              </button>
+              <button 
+                onClick={toggleVideo}
+                className={`p-2 rounded-lg transition-colors ${isVideoEnabled ? 'bg-gray-900/80 hover:bg-gray-700/80' : 'bg-red-500/80 hover:bg-red-600/80'}`}
+              >
+                {isVideoEnabled ? <Video className="w-5 h-5 text-white" /> : <VideoOff className="w-5 h-5 text-white" />}
+              </button>
+            </div>
+            <div className="absolute top-4 left-4 bg-gray-900/80 px-3 py-1 rounded-lg">
+              <p className="text-white text-sm">You</p>
+            </div>
+          </div>
+
+          {/* Remote Video */}
+          <div className="relative">
+            <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden">
+              {lobby ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-pulse bg-indigo-600 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Video className="w-8 h-8 text-white" />
+                    </div>
+                    <p className="text-white">Waiting for someone to join...</p>
+                  </div>
+                </div>
+              ) : (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            {!lobby && (
+              <>
+                
+                  
+                <div className="absolute top-4 left-4 bg-gray-900/80 px-3 py-1 rounded-lg">
+                  <p className="text-white text-sm">Remote User</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Connection Status */}
+        {lobby && (
+          <div className="bg-indigo-600/10 border border-indigo-600/20 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+              <p className="text-indigo-300">Waiting to connect you with someone...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  )
-}
-
+  );
+};

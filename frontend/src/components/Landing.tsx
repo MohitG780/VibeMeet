@@ -1,82 +1,86 @@
-"use client"
-
-import { useEffect, useRef, useState } from "react"
-
-import { Room } from "./Room"
+import { useEffect, useState, useRef } from "react";
+import { Room } from "./Room";
+import { Video, UserPlus } from "lucide-react";
 
 export const Landing = () => {
-  const [name, setName] = useState("")
-  const [localAudioTrack, setLocalAudioTrack] = useState<MediaStreamTrack | null>(null)
-  const [localVideoTrack, setlocalVideoTrack] = useState<MediaStreamTrack | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const [joined, setJoined] = useState(false)
+  const [name, setName] = useState("");
+  const [joined, setJoined] = useState(false);
+  const [localVideoTrack, setLocalVideoTrack] = useState<MediaStreamTrack | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<MediaStreamTrack | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const getCam = async () => {
-    try {
-      const stream = await window.navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      })
-      const audioTrack = stream.getAudioTracks()[0]
-      const videoTrack = stream.getVideoTracks()[0]
-      setLocalAudioTrack(audioTrack)
-      setlocalVideoTrack(videoTrack)
-      if (videoRef.current) {
-        videoRef.current.srcObject = new MediaStream([videoTrack])
-        videoRef.current.play()
-      }
-      setError(null)
-    } catch (err) {
-      console.error("Error accessing media devices:", err)
-      setError("Failed to access camera and microphone. Please check your permissions.")
+    const stream = await window.navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+    const audioTrack = stream.getAudioTracks()[0];
+    const videoTrack = stream.getVideoTracks()[0];
+    setLocalAudioTrack(audioTrack);
+    setLocalVideoTrack(videoTrack);
+    if (!videoRef.current) {
+      return;
     }
-  }
+    videoRef.current.srcObject = new MediaStream([videoTrack]);
+    videoRef.current.play();
+  };
 
   useEffect(() => {
     if (videoRef && videoRef.current) {
-      getCam()
+      getCam();
     }
-  }, [videoRef])
+  }, [videoRef]);
 
   if (!joined) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold mb-4">Welcome to VibeMeet</h1>
-          <div className="mb-4">
-            <video autoPlay muted ref={videoRef} className="w-[400px] h-[300px] bg-black rounded-lg"></video>
-          </div>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-              <span className="block sm:inline">{error}</span>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-block p-3 bg-indigo-100 rounded-full mb-4">
+              <Video className="w-8 h-8 text-indigo-600" />
             </div>
-          )}
-          <input
-            type="text"
-            placeholder="Enter your name"
-            className="w-full px-3 py-2 border rounded-md mb-4"
-            onChange={(e) => setName(e.target.value)}
-            value={name}
-          />
-          <button
-            onClick={() => {
-              if (name.trim()) {
-                setJoined(true)
-              } else {
-                setError("Please enter your name")
-              }
-            }}
-            className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition-colors"
-          >
-            Join
-          </button>
+            <h1 className="text-2xl font-bold text-gray-800">Join Video Chat</h1>
+            <p className="text-gray-600 mt-2">Connect with others in real-time</p>
+          </div>
+
+          <div className="relative mb-6">
+            <div className="w-full aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4">
+              <video
+                autoPlay
+                ref={videoRef}
+                className="w-full h-full object-cover mirror"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Your Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                placeholder="Enter your name"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                onChange={(e) => setName(e.target.value)}
+                value={name}
+              />
+            </div>
+
+            <button
+              onClick={() => setJoined(true)}
+              disabled={!name.trim()}
+              className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-5 h-5" />
+              Join Room
+            </button>
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
-  return <Room name={name} localAudioTrack={localAudioTrack} localVideoTrack={localVideoTrack} />
-}
-
+  return <Room name={name} localAudioTrack={localAudioTrack} localVideoTrack={localVideoTrack} />;
+};
