@@ -10,7 +10,8 @@ class UserManager {
     }
     addUser(name, socket) {
         this.users.push({
-            name, socket
+            name,
+            socket,
         });
         this.queue.push(socket.id);
         socket.emit("lobby");
@@ -18,9 +19,9 @@ class UserManager {
         this.initHandlers(socket);
     }
     removeUser(socketId) {
-        const user = this.users.find(x => x.socket.id === socketId);
-        this.users = this.users.filter(x => x.socket.id !== socketId);
-        this.queue = this.queue.filter(x => x === socketId);
+        const user = this.users.find((x) => x.socket.id === socketId);
+        this.users = this.users.filter((x) => x.socket.id !== socketId);
+        this.queue = this.queue.filter((x) => x === socketId);
     }
     clearQueue() {
         console.log("inside clear queues");
@@ -31,14 +32,22 @@ class UserManager {
         const id1 = this.queue.pop();
         const id2 = this.queue.pop();
         console.log("id is " + id1 + " " + id2);
-        const user1 = this.users.find(x => x.socket.id === id1);
-        const user2 = this.users.find(x => x.socket.id === id2);
+        const user1 = this.users.find((x) => x.socket.id === id1);
+        const user2 = this.users.find((x) => x.socket.id === id2);
         if (!user1 || !user2) {
             return;
         }
         console.log("creating roonm");
         const room = this.roomManager.createRoom(user1, user2);
         this.clearQueue();
+    }
+    handleSkip(socketId) {
+        const user = this.users.find((x) => x.socket.id === socketId);
+        if (user) {
+            this.queue.push(socketId);
+            user.socket.emit("lobby");
+            this.clearQueue();
+        }
     }
     initHandlers(socket) {
         socket.on("offer", ({ sdp, roomId }) => {
@@ -49,6 +58,9 @@ class UserManager {
         });
         socket.on("add-ice-candidate", ({ candidate, roomId, type }) => {
             this.roomManager.onIceCandidates(roomId, socket.id, candidate, type);
+        });
+        socket.on("skip", () => {
+            this.handleSkip(socket.id);
         });
     }
 }
